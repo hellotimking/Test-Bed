@@ -1,0 +1,1169 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Global Radio Explorer</title>
+  <style>
+    :root {
+      color-scheme: dark;
+      --bg: #0b0c10;
+      --panel: #161824;
+      --panel-alt: #1e2132;
+      --border: rgba(255, 255, 255, 0.08);
+      --accent: #8b5cf6;
+      --accent-strong: #a855f7;
+      --text-primary: #f9fafc;
+      --text-secondary: rgba(236, 239, 244, 0.7);
+      --danger: #ef4444;
+      --success: #22c55e;
+      --radius-lg: 20px;
+      --radius-md: 16px;
+      --radius-sm: 12px;
+      --font-stack: "Inter", "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: clamp(16px, 4vw, 48px);
+      background: radial-gradient(circle at top, rgba(139, 92, 246, 0.2), transparent 55%),
+        linear-gradient(145deg, #050607, #0f1118 48%, #1a1c28);
+      font-family: var(--font-stack);
+      color: var(--text-primary);
+    }
+
+    main {
+      width: min(1200px, 100%);
+      display: flex;
+      flex-direction: column;
+      gap: 24px;
+    }
+
+    .player-panel {
+      border-radius: var(--radius-lg);
+      background: var(--panel);
+      border: 1px solid var(--border);
+      padding: clamp(24px, 4vw, 32px);
+      box-shadow: 0 24px 48px rgba(11, 12, 16, 0.45);
+      display: grid;
+      gap: clamp(18px, 3vw, 28px);
+    }
+
+    .sr-only {
+      position: absolute;
+      width: 1px;
+      height: 1px;
+      padding: 0;
+      margin: -1px;
+      overflow: hidden;
+      clip: rect(0, 0, 0, 0);
+      white-space: nowrap;
+      border: 0;
+    }
+
+    .player-header {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+
+    .player-header h1 {
+      margin: 0;
+      font-size: clamp(1.4rem, 2.4vw, 2rem);
+      font-weight: 700;
+      letter-spacing: 0.02em;
+    }
+
+    .player-header p {
+      margin: 0;
+      color: var(--text-secondary);
+      font-size: 0.95rem;
+    }
+
+    .status-chip {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 6px 12px;
+      background: rgba(139, 92, 246, 0.12);
+      border-radius: 999px;
+      font-size: 0.85rem;
+      color: var(--accent);
+      width: fit-content;
+    }
+
+    .now-playing {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+      gap: 16px;
+    }
+
+    .info-tile {
+      background: var(--panel-alt);
+      border-radius: var(--radius-md);
+      border: 1px solid var(--border);
+      padding: 16px 18px;
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+
+    .info-tile span {
+      font-size: 0.75rem;
+      text-transform: uppercase;
+      letter-spacing: 0.12em;
+      color: var(--text-secondary);
+    }
+
+    .info-tile strong,
+    .info-tile p {
+      margin: 0;
+      font-size: 1rem;
+      line-height: 1.4;
+    }
+
+    .info-tile strong {
+      font-weight: 600;
+      color: var(--text-primary);
+    }
+
+    .info-tile p {
+      color: var(--text-secondary);
+    }
+
+    .control-bar {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 12px;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    .button-group {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 12px;
+    }
+
+    button {
+      border: none;
+      border-radius: var(--radius-sm);
+      padding: 12px 22px;
+      font-size: 0.95rem;
+      font-weight: 600;
+      font-family: inherit;
+      cursor: pointer;
+      transition: transform 0.2s ease, box-shadow 0.2s ease, background 0.2s ease;
+    }
+
+    button:focus-visible {
+      outline: 3px solid rgba(139, 92, 246, 0.6);
+      outline-offset: 2px;
+    }
+
+    .primary-btn {
+      background: linear-gradient(135deg, var(--accent), var(--accent-strong));
+      color: #0f1020;
+      box-shadow: 0 14px 30px rgba(139, 92, 246, 0.35);
+    }
+
+    .primary-btn:hover {
+      transform: translateY(-1px);
+      box-shadow: 0 18px 36px rgba(139, 92, 246, 0.4);
+    }
+
+    .secondary-btn {
+      background: rgba(255, 255, 255, 0.05);
+      color: var(--text-primary);
+      border: 1px solid rgba(139, 92, 246, 0.25);
+    }
+
+    .secondary-btn:hover {
+      transform: translateY(-1px);
+      background: rgba(255, 255, 255, 0.08);
+    }
+
+    .danger-btn {
+      background: rgba(239, 68, 68, 0.14);
+      color: #fca5a5;
+      border: 1px solid rgba(239, 68, 68, 0.28);
+    }
+
+    .danger-btn:hover {
+      transform: translateY(-1px);
+      background: rgba(239, 68, 68, 0.22);
+    }
+
+    .volume-slider {
+      appearance: none;
+      width: min(220px, 100%);
+      height: 6px;
+      border-radius: 999px;
+      background: rgba(255, 255, 255, 0.12);
+      outline: none;
+      cursor: pointer;
+    }
+
+    .volume-slider::-webkit-slider-thumb {
+      appearance: none;
+      width: 18px;
+      height: 18px;
+      border-radius: 50%;
+      background: var(--accent-strong);
+      box-shadow: 0 4px 14px rgba(139, 92, 246, 0.55);
+      border: none;
+    }
+
+    .volume-slider::-moz-range-thumb {
+      width: 18px;
+      height: 18px;
+      border-radius: 50%;
+      background: var(--accent-strong);
+      box-shadow: 0 4px 14px rgba(139, 92, 246, 0.55);
+      border: none;
+    }
+
+    .visualizer-surface {
+      background: linear-gradient(145deg, rgba(139, 92, 246, 0.12), rgba(30, 33, 50, 0.42));
+      border-radius: var(--radius-md);
+      border: 1px solid rgba(139, 92, 246, 0.22);
+      padding: 18px;
+    }
+
+    canvas#visualizer {
+      width: 100%;
+      height: 120px;
+      display: block;
+    }
+
+    .stations-panel {
+      background: rgba(15, 17, 25, 0.85);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-lg);
+      box-shadow: 0 18px 44px rgba(7, 8, 11, 0.4);
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+    }
+
+    .stations-toolbar {
+      padding: clamp(18px, 3vw, 28px);
+      display: flex;
+      flex-wrap: wrap;
+      gap: 16px;
+      align-items: center;
+      justify-content: space-between;
+      border-bottom: 1px solid var(--border);
+      background: rgba(22, 24, 36, 0.9);
+    }
+
+    .stations-toolbar h2 {
+      margin: 0;
+      font-size: clamp(1.1rem, 2vw, 1.4rem);
+      letter-spacing: 0.015em;
+    }
+
+    .search-field {
+      position: relative;
+      flex: 1;
+      max-width: 320px;
+      min-width: 220px;
+    }
+
+    .search-field input {
+      width: 100%;
+      padding: 12px 16px 12px 42px;
+      background: rgba(11, 12, 16, 0.55);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      border-radius: var(--radius-sm);
+      color: var(--text-primary);
+      font-size: 0.95rem;
+      font-family: inherit;
+    }
+
+    .search-field input::placeholder {
+      color: rgba(236, 239, 244, 0.45);
+    }
+
+    .search-field svg {
+      position: absolute;
+      left: 14px;
+      top: 50%;
+      transform: translateY(-50%);
+      width: 18px;
+      height: 18px;
+      fill: rgba(236, 239, 244, 0.5);
+    }
+
+    .table-wrapper {
+      overflow: auto;
+      max-height: clamp(360px, 50vh, 520px);
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      min-width: 640px;
+    }
+
+    thead {
+      background: rgba(22, 24, 36, 0.8);
+      position: sticky;
+      top: 0;
+      z-index: 1;
+    }
+
+    th, td {
+      padding: 16px 18px;
+      text-align: left;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+      font-size: 0.95rem;
+    }
+
+    th {
+      font-size: 0.8rem;
+      text-transform: uppercase;
+      letter-spacing: 0.12em;
+      color: rgba(236, 239, 244, 0.55);
+    }
+
+    tbody tr {
+      transition: background 0.15s ease, transform 0.15s ease;
+      cursor: pointer;
+    }
+
+    tbody tr:hover,
+    tbody tr:focus-visible {
+      background: rgba(139, 92, 246, 0.12);
+    }
+
+    tbody tr.selected {
+      background: rgba(139, 92, 246, 0.24);
+      transform: translateY(-1px);
+    }
+
+    tbody tr.selected td {
+      border-bottom-color: rgba(139, 92, 246, 0.45);
+    }
+
+    tbody td:last-child,
+    thead th:last-child {
+      text-align: right;
+    }
+
+    .empty-state {
+      padding: 36px;
+      text-align: center;
+      color: var(--text-secondary);
+      font-size: 0.95rem;
+    }
+
+    @media (max-width: 768px) {
+      main {
+        gap: 18px;
+      }
+
+      .control-bar {
+        flex-direction: column;
+        align-items: stretch;
+      }
+
+      .button-group {
+        width: 100%;
+        justify-content: center;
+      }
+
+      .button-group button {
+        flex: 1;
+      }
+
+      .volume-slider {
+        width: 100%;
+      }
+
+      table {
+        min-width: unset;
+      }
+    }
+
+    @media (max-width: 520px) {
+      .search-field {
+        min-width: 100%;
+      }
+
+      .stations-toolbar {
+        flex-direction: column;
+        align-items: flex-start;
+      }
+    }
+  </style>
+</head>
+<body>
+  <main>
+    <section class="player-panel" aria-label="Current station details and controls">
+      <div class="player-header">
+        <span class="status-chip" id="statusChip">Ready to explore global radio</span>
+        <h1 id="stationTitle">Select a station to start listening</h1>
+        <p id="trackTitle">Current track information will appear here once playback begins.</p>
+      </div>
+
+      <div class="now-playing" role="group" aria-label="Station metadata">
+        <article class="info-tile">
+          <span>Station</span>
+          <strong id="stationName">—</strong>
+        </article>
+        <article class="info-tile">
+          <span>Bitrate</span>
+          <strong id="stationBitrate">—</strong>
+        </article>
+        <article class="info-tile">
+          <span>Country</span>
+          <strong id="stationCountry">—</strong>
+        </article>
+        <article class="info-tile">
+          <span>Genre / Tags</span>
+          <p id="stationTags">—</p>
+        </article>
+      </div>
+
+      <div class="control-bar">
+        <div class="button-group" role="group" aria-label="Playback controls">
+          <button type="button" class="primary-btn" id="playPauseBtn">Play</button>
+          <button type="button" class="danger-btn" id="stopBtn">Stop</button>
+          <button type="button" class="secondary-btn" id="muteBtn">Mute</button>
+        </div>
+        <label class="volume-control" aria-label="Volume">
+          <span class="sr-only">Volume</span>
+          <input type="range" min="0" max="1" step="0.01" value="0.75" class="volume-slider" id="volumeSlider" />
+        </label>
+      </div>
+
+      <div class="visualizer-surface">
+        <canvas id="visualizer" width="1024" height="240" role="img" aria-label="Audio visualizer"></canvas>
+      </div>
+    </section>
+
+    <section class="stations-panel" aria-label="Station directory">
+      <div class="stations-toolbar">
+        <h2>Global Station Library</h2>
+        <div class="search-field">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15.5 14h-.79l-.28-.27a6.5 6.5 0 1 0-.71.71l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0a4.5 4.5 0 1 1 0-9 4.5 4.5 0 0 1 0 9z"/></svg>
+          <label class="sr-only" for="stationSearch">Search stations</label>
+          <input id="stationSearch" type="search" placeholder="Search by station, country, or tags" autocomplete="off" />
+        </div>
+      </div>
+      <div class="table-wrapper" role="region" aria-live="polite">
+        <table aria-label="Available stations">
+          <thead>
+            <tr>
+              <th scope="col">Station</th>
+              <th scope="col">Current Track</th>
+              <th scope="col">Bitrate</th>
+              <th scope="col">Country</th>
+            </tr>
+          </thead>
+          <tbody id="stationTableBody"></tbody>
+        </table>
+        <div class="empty-state" id="emptyState" hidden>
+          No stations match the current filter. Try a different search term.
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <audio id="radio" crossorigin="anonymous"></audio>
+
+  <script>
+    const API_HOSTS = [
+      "https://de1.api.radio-browser.info",
+      "https://fr1.api.radio-browser.info",
+      "https://nl1.api.radio-browser.info",
+      "https://us1.api.radio-browser.info"
+    ];
+    let activeApiHost = API_HOSTS[0];
+    const STATION_LIMIT = 120;
+
+    const EXCLUDED_COUNTRY_CODES = new Set([
+      "AE",
+      "BH",
+      "EG",
+      "IR",
+      "IQ",
+      "IL",
+      "JO",
+      "KW",
+      "LB",
+      "OM",
+      "PS",
+      "QA",
+      "SA",
+      "SY",
+      "TR",
+      "YE"
+    ]);
+
+    const EXCLUDED_COUNTRY_NAMES = new Set(
+      [
+        "united arab emirates",
+        "bahrain",
+        "egypt",
+        "iran",
+        "iraq",
+        "israel",
+        "jordan",
+        "kuwait",
+        "lebanon",
+        "oman",
+        "palestine",
+        "qatar",
+        "saudi arabia",
+        "syria",
+        "turkey",
+        "yemen"
+      ].map((name) => name.toLowerCase())
+    );
+
+    const audio = document.getElementById("radio");
+    const playPauseBtn = document.getElementById("playPauseBtn");
+    const stopBtn = document.getElementById("stopBtn");
+    const muteBtn = document.getElementById("muteBtn");
+    const volumeSlider = document.getElementById("volumeSlider");
+    const stationTableBody = document.getElementById("stationTableBody");
+    const stationSearch = document.getElementById("stationSearch");
+    const emptyState = document.getElementById("emptyState");
+
+    const stationName = document.getElementById("stationName");
+    const stationBitrate = document.getElementById("stationBitrate");
+    const stationCountry = document.getElementById("stationCountry");
+    const stationTags = document.getElementById("stationTags");
+    const stationTitle = document.getElementById("stationTitle");
+    const trackTitle = document.getElementById("trackTitle");
+    const statusChip = document.getElementById("statusChip");
+
+    const visualizerCanvas = document.getElementById("visualizer");
+    const vctx = visualizerCanvas.getContext("2d");
+
+    audio.volume = parseFloat(volumeSlider.value);
+
+    let audioContext;
+    let analyser;
+    let dataArray;
+    let animationId;
+    let metadataTimer;
+    let currentStation;
+    let stationRows = new Map();
+    let stations = [];
+    let filteredStations = [];
+
+    function isExcludedStation(station) {
+      if (!station || typeof station !== "object") return false;
+      const code = (station.countrycode || "").trim().toUpperCase();
+      if (code && EXCLUDED_COUNTRY_CODES.has(code)) return true;
+      const countryName = (station.country || "").trim().toLowerCase();
+      if (countryName && EXCLUDED_COUNTRY_NAMES.has(countryName)) return true;
+      return false;
+    }
+
+    const fallbackStations = [
+      {
+        name: "Radio Swiss Jazz",
+        url_resolved: "https://stream.srg-ssr.ch/m/rsj/mp3_128",
+        bitrate: 128,
+        country: "Switzerland",
+        countrycode: "CH",
+        stationuuid: "bbf4e318-595f-11e8-91b3-52543be04c81",
+        tags: "jazz,classic jazz,swiss",
+      },
+      {
+        name: "SomaFM Groove Salad",
+        url_resolved: "https://ice5.somafm.com/groovesalad-128-mp3",
+        bitrate: 128,
+        country: "United States",
+        countrycode: "US",
+        stationuuid: "960a75b2-0601-11e8-ae97-52543be04c81",
+        tags: "ambient,chillout,downtempo,beats",
+      },
+      {
+        name: "BBC Radio 1",
+        url_resolved: "https://stream.live.vc.bbcmedia.co.uk/bbc_radio_one",
+        bitrate: 128,
+        country: "United Kingdom",
+        countrycode: "GB",
+        stationuuid: "3ef4cc3e-0601-11e8-ae97-52543be04c81",
+        tags: "pop,top 40,bbc",
+      },
+      {
+        name: "TSF Jazz",
+        url_resolved: "https://tsfjazz.ice.infomaniak.ch/tsfjazz-high.mp3",
+        bitrate: 128,
+        country: "France",
+        countrycode: "FR",
+        stationuuid: "7eb74cd0-1b07-11ea-9d9e-52543be04c81",
+        tags: "jazz,paris",
+      },
+      {
+        name: "ABC Triple J",
+        url_resolved: "https://live-radio01.mediahubaustralia.com/2TJW/mp3/",
+        bitrate: 128,
+        country: "Australia",
+        countrycode: "AU",
+        stationuuid: "fe3ad95a-828d-11e9-a727-52543be04c81",
+        tags: "alternative,indie,rock,australia",
+      },
+      {
+        name: "NTS Live 1",
+        url_resolved: "https://stream-relay-geo.ntslive.net/stream",
+        bitrate: 128,
+        country: "United Kingdom",
+        countrycode: "GB",
+        stationuuid: "d77bebfa-0641-11ea-a4bf-52543be04c81",
+        tags: "eclectic,global,underground",
+      },
+      {
+        name: "FIP",
+        url_resolved: "https://icecast.radiofrance.fr/fip-midfi.mp3",
+        bitrate: 128,
+        country: "France",
+        countrycode: "FR",
+        stationuuid: "733d5e50-274c-11e8-91bf-52543be04c81",
+        tags: "eclectic,france,world",
+      },
+      {
+        name: "KEXP 90.3 FM",
+        url_resolved: "https://kexp-mp3-128.streamguys1.com/kexp128.mp3",
+        bitrate: 128,
+        country: "United States",
+        countrycode: "US",
+        stationuuid: "960a7f24-0601-11e8-ae97-52543be04c81",
+        tags: "indie,alternative,rock,seattle",
+      }
+    ];
+
+    function formatBitrate(value) {
+      if (!value) return "—";
+      return `${value} kbps`;
+    }
+
+    function formatCountry(station) {
+      if (station.country) return station.country;
+      if (station.countrycode) return station.countrycode;
+      return "—";
+    }
+
+    function formatTags(tags) {
+      if (!tags) return "—";
+      return tags
+        .split(",")
+        .map((tag) => tag.trim())
+        .filter(Boolean)
+        .slice(0, 4)
+        .join(" • ") || "—";
+    }
+
+    function splitTrackInfo(text) {
+      if (!text) return { artist: "", title: "" };
+      const cleaned = text.trim();
+      if (!cleaned) return { artist: "", title: "" };
+      const parts = cleaned.split(" - ");
+      if (parts.length >= 2) {
+        const artist = parts.shift().trim();
+        const title = parts.join(" - ").trim();
+        return { artist, title: title || cleaned };
+      }
+      return { artist: "", title: cleaned };
+    }
+
+    function updateMediaSession(station, trackText) {
+      if (!("mediaSession" in navigator) || typeof window.MediaMetadata === "undefined") {
+        return;
+      }
+      const { artist, title } = splitTrackInfo(trackText);
+      const metadata = {
+        title: title || station?.name || "Live stream",
+        artist: artist || station?.name || "",
+        album: station?.name || "Global Radio",
+        artwork: [],
+      };
+      try {
+        navigator.mediaSession.metadata = new MediaMetadata(metadata);
+      } catch (error) {
+        console.warn("Unable to update media session", error);
+      }
+    }
+
+    function updateStatus(message, tone = "neutral") {
+      statusChip.textContent = message;
+      if (tone === "error") {
+        statusChip.style.color = "#fca5a5";
+        statusChip.style.backgroundColor = "rgba(248, 113, 113, 0.12)";
+      } else if (tone === "success") {
+        statusChip.style.color = "var(--success)";
+        statusChip.style.backgroundColor = "rgba(34, 197, 94, 0.16)";
+      } else {
+        statusChip.style.color = "var(--accent)";
+        statusChip.style.backgroundColor = "rgba(139, 92, 246, 0.12)";
+      }
+    }
+
+    function setTrackTitle(text) {
+      trackTitle.textContent = text;
+    }
+
+    function highlightRow(uuid) {
+      stationRows.forEach((row) => row.classList.remove("selected"));
+      if (uuid && stationRows.has(uuid)) {
+        stationRows.get(uuid).classList.add("selected");
+        stationRows.get(uuid).scrollIntoView({ block: "nearest" });
+      }
+    }
+
+    function renderStations(list) {
+      stationTableBody.innerHTML = "";
+      stationRows.clear();
+      if (!list.length) {
+        emptyState.hidden = false;
+        return;
+      }
+      emptyState.hidden = true;
+      const fragment = document.createDocumentFragment();
+      list.forEach((station) => {
+        const row = document.createElement("tr");
+        row.tabIndex = 0;
+        row.dataset.uuid = station.stationuuid;
+
+        const stationCell = document.createElement("td");
+        stationCell.innerHTML = `<strong>${station.name || "Unnamed Station"}</strong><div style="font-size:0.8rem;color:var(--text-secondary);margin-top:4px;">${formatTags(station.tags)}</div>`;
+
+        const trackCell = document.createElement("td");
+        trackCell.className = "track-cell";
+        trackCell.textContent = station.__nowPlaying || "Tap play to load metadata";
+
+        const bitrateCell = document.createElement("td");
+        bitrateCell.textContent = formatBitrate(station.bitrate);
+
+        const countryCell = document.createElement("td");
+        countryCell.textContent = formatCountry(station);
+
+        row.append(stationCell, trackCell, bitrateCell, countryCell);
+
+        row.addEventListener("click", () => selectStation(station));
+        row.addEventListener("keydown", (event) => {
+          if (event.key === "Enter" || event.key === " ") {
+            event.preventDefault();
+            selectStation(station);
+          }
+        });
+
+        fragment.appendChild(row);
+        stationRows.set(station.stationuuid, row);
+      });
+      stationTableBody.appendChild(fragment);
+    }
+
+    function filterStations(query) {
+      const q = query.trim().toLowerCase();
+      if (!q) {
+        filteredStations = stations.slice();
+      } else {
+        filteredStations = stations.filter((station) => {
+          const haystack = [
+            station.name,
+            station.country,
+            station.countrycode,
+            station.tags,
+            station.language
+          ]
+            .filter(Boolean)
+            .join(" ")
+            .toLowerCase();
+          return haystack.includes(q);
+        });
+      }
+      renderStations(filteredStations);
+      if (currentStation && !filteredStations.find((s) => s.stationuuid === currentStation.stationuuid)) {
+        highlightRow(null);
+      } else if (currentStation) {
+        highlightRow(currentStation.stationuuid);
+      }
+    }
+
+    async function fetchStations() {
+      updateStatus("Loading global stations…");
+      for (const host of API_HOSTS) {
+        try {
+          const response = await fetch(
+            `${host}/json/stations/topvote?limit=${STATION_LIMIT}&hidebroken=true`
+          );
+          if (!response.ok) throw new Error(`HTTP ${response.status}`);
+          const data = await response.json();
+          const allowedStations = Array.isArray(data)
+            ? data.filter((station) => !isExcludedStation(station))
+            : [];
+          if (allowedStations.length) {
+            activeApiHost = host;
+            stations = allowedStations;
+            stations.forEach((station) => (station.__nowPlaying = "Tap play to load metadata"));
+            filteredStations = stations.slice();
+            renderStations(filteredStations);
+            updateStatus(`Loaded ${stations.length} stations`, "success");
+            return;
+          }
+        } catch (error) {
+          console.warn(`Station fetch failed via ${host}`, error);
+          continue;
+        }
+      }
+      stations = fallbackStations
+        .filter((station) => !isExcludedStation(station))
+        .map((s) => ({ ...s, __nowPlaying: "Tap play to load metadata" }));
+      filteredStations = stations.slice();
+      renderStations(filteredStations);
+      updateStatus("Live directory unavailable, showing featured stations", "error");
+    }
+
+    function ensureAudioGraph() {
+      if (!audioContext) {
+        audioContext = new (window.AudioContext || window.webkitAudioContext)();
+        analyser = audioContext.createAnalyser();
+        analyser.fftSize = 2048;
+        const source = audioContext.createMediaElementSource(audio);
+        source.connect(analyser);
+        analyser.connect(audioContext.destination);
+        dataArray = new Uint8Array(analyser.frequencyBinCount);
+        renderVisualizer();
+      }
+    }
+
+    function renderVisualizer() {
+      if (!analyser) return;
+      const width = visualizerCanvas.clientWidth;
+      const height = visualizerCanvas.clientHeight;
+      vctx.clearRect(0, 0, width, height);
+      analyser.getByteFrequencyData(dataArray);
+      const barCount = Math.max(16, Math.floor(width / 6));
+      const step = Math.max(1, Math.floor(dataArray.length / barCount));
+      const gradient = vctx.createLinearGradient(0, 0, 0, height);
+      gradient.addColorStop(0, "rgba(168, 85, 247, 0.95)");
+      gradient.addColorStop(1, "rgba(139, 92, 246, 0.35)");
+      for (let i = 0; i < barCount; i++) {
+        const value = dataArray[i * step];
+        const barHeight = (value / 255) * height;
+        const x = i * 6 + 1;
+        const y = height - barHeight;
+        const radius = 3;
+        const barWidth = 4;
+        vctx.fillStyle = gradient;
+        vctx.beginPath();
+        vctx.moveTo(x, height);
+        vctx.lineTo(x, y + radius);
+        vctx.quadraticCurveTo(x, y, x + radius, y);
+        vctx.lineTo(x + barWidth - radius, y);
+        vctx.quadraticCurveTo(x + barWidth, y, x + barWidth, y + radius);
+        vctx.lineTo(x + barWidth, height);
+        vctx.closePath();
+        vctx.fill();
+      }
+      animationId = requestAnimationFrame(renderVisualizer);
+    }
+
+    function cancelVisualizer() {
+      if (animationId) {
+        cancelAnimationFrame(animationId);
+        animationId = null;
+      }
+      if (vctx) {
+        vctx.clearRect(0, 0, visualizerCanvas.clientWidth, visualizerCanvas.clientHeight);
+      }
+    }
+
+    function startVisualizer() {
+      if (!analyser) return;
+      if (!animationId) {
+        animationId = requestAnimationFrame(renderVisualizer);
+      }
+    }
+
+    function extractNowPlaying(metadata) {
+      if (!metadata) return "";
+
+      const entries = [];
+      const enqueue = (value) => {
+        if (!value) return;
+        if (Array.isArray(value)) {
+          value.forEach(enqueue);
+          return;
+        }
+        if (typeof value === "object") {
+          entries.push(value);
+          if (value.metadata) {
+            enqueue(value.metadata);
+          }
+          if (value.now_playing) {
+            enqueue(value.now_playing);
+          }
+        }
+      };
+
+      enqueue(metadata);
+
+      for (const entry of entries) {
+        const artist =
+          entry.artist ||
+          entry.artistName ||
+          entry.artist_title ||
+          entry.artistTitle ||
+          entry.performer ||
+          entry.dj;
+        const title =
+          entry.title ||
+          entry.song ||
+          entry.track ||
+          entry.title_clean ||
+          entry.current_track ||
+          entry.program ||
+          entry.show;
+        const fallbackText =
+          entry.text ||
+          entry.description ||
+          entry.message ||
+          entry.streamtitle ||
+          entry.streamTitle ||
+          entry.icytitle ||
+          entry["icy-title"] ||
+          entry["icy_title"] ||
+          entry.nowPlaying ||
+          entry.nowplaying ||
+          entry.playing;
+
+        const combined = [artist, title].filter(Boolean).join(" – ");
+        if (combined) {
+          return combined;
+        }
+        if (fallbackText) {
+          return fallbackText.toString();
+        }
+      }
+
+      return "";
+    }
+
+    async function fetchNowPlaying(station, { silent = false } = {}) {
+      if (!station || !station.stationuuid) {
+        return;
+      }
+      if (!silent) {
+        setTrackTitle("Fetching live metadata…");
+        updateTrackCell(station.stationuuid, "Fetching metadata…");
+      }
+      for (const host of [activeApiHost, ...API_HOSTS.filter((h) => h !== activeApiHost)]) {
+        const endpoints = [
+          `${host}/json/metadata/${station.stationuuid}`,
+          `${host}/json/metadata/byStationUUID/${station.stationuuid}`
+        ];
+        for (const endpoint of endpoints) {
+          try {
+            const response = await fetch(endpoint);
+            if (!response.ok) throw new Error(`HTTP ${response.status}`);
+            const data = await response.json();
+            const nowPlaying = extractNowPlaying(data);
+            if (nowPlaying) {
+              const cleaned = nowPlaying.toString().trim();
+              station.__nowPlaying = cleaned;
+              setTrackTitle(cleaned);
+              updateTrackCell(station.stationuuid, cleaned);
+              updateMediaSession(station, cleaned);
+              return;
+            }
+          } catch (error) {
+            console.warn(`Metadata lookup failed via ${endpoint}`, error);
+          }
+        }
+      }
+      const fallback =
+        station.__nowPlaying && station.__nowPlaying !== "Tap play to load metadata"
+          ? station.__nowPlaying
+          : "Live metadata unavailable";
+      station.__nowPlaying = fallback;
+      setTrackTitle(fallback);
+      updateTrackCell(station.stationuuid, fallback);
+      updateMediaSession(station, fallback);
+    }
+
+    function updateTrackCell(uuid, text) {
+      const row = stationRows.get(uuid);
+      if (!row) return;
+      const cell = row.querySelector(".track-cell");
+      if (cell) {
+        cell.textContent = text;
+      }
+    }
+
+    async function selectStation(station) {
+      if (!station || !station.url_resolved) return;
+      currentStation = station;
+      highlightRow(station.stationuuid);
+      stationName.textContent = station.name || "Unnamed Station";
+      stationBitrate.textContent = formatBitrate(station.bitrate);
+      stationCountry.textContent = formatCountry(station);
+      stationTags.textContent = formatTags(station.tags);
+      stationTitle.textContent = station.name || "Global Radio";
+      updateStatus(`Tuned to ${station.name || "station"}`, "success");
+      setTrackTitle("Buffering stream…");
+      updateMediaSession(station, "Buffering stream…");
+
+      if (metadataTimer) clearInterval(metadataTimer);
+
+      const shouldResumeContext = audioContext && audioContext.state === "suspended";
+
+      if (audio.src !== station.url_resolved) {
+        audio.pause();
+        audio.src = station.url_resolved;
+        audio.load();
+      }
+
+      try {
+        ensureAudioGraph();
+        if (shouldResumeContext && audioContext.state === "suspended") {
+          await audioContext.resume();
+        }
+        await audio.play();
+        playPauseBtn.textContent = "Pause";
+        playPauseBtn.dataset.state = "playing";
+        muteBtn.textContent = audio.muted ? "Unmute" : "Mute";
+        fetchNowPlaying(station);
+        startVisualizer();
+        metadataTimer = setInterval(() => fetchNowPlaying(station, { silent: true }), 60000);
+      } catch (error) {
+        console.error("Playback failed", error);
+        updateStatus("Playback blocked. Try pressing play.", "error");
+        playPauseBtn.textContent = "Play";
+        setTrackTitle("Playback was prevented. Press play to resume.");
+      }
+    }
+
+    playPauseBtn.addEventListener("click", async () => {
+      if (!currentStation) {
+        if (filteredStations.length) {
+          selectStation(filteredStations[0]);
+        } else {
+          updateStatus("Choose a station to start listening", "error");
+        }
+        return;
+      }
+      if (audio.paused) {
+        try {
+          ensureAudioGraph();
+          if (audioContext?.state === "suspended") {
+            await audioContext.resume();
+          }
+          await audio.play();
+          playPauseBtn.textContent = "Pause";
+          playPauseBtn.dataset.state = "playing";
+          updateStatus(`Listening to ${currentStation.name}`, "success");
+          startVisualizer();
+          updateMediaSession(currentStation, currentStation.__nowPlaying || "Live stream");
+        } catch (error) {
+          console.error(error);
+          updateStatus("Playback blocked. Try again.", "error");
+        }
+      } else {
+        audio.pause();
+        playPauseBtn.textContent = "Play";
+        playPauseBtn.dataset.state = "paused";
+        updateStatus("Playback paused");
+        if (currentStation) {
+          updateMediaSession(currentStation, `${currentStation.__nowPlaying || "Live stream"} (paused)`);
+        }
+      }
+    });
+
+    stopBtn.addEventListener("click", () => {
+      audio.pause();
+      audio.currentTime = 0;
+      playPauseBtn.textContent = "Play";
+      playPauseBtn.dataset.state = "stopped";
+      cancelVisualizer();
+      setTrackTitle("Playback stopped. Select play to resume.");
+      updateStatus("Playback stopped");
+      if (currentStation) {
+        updateMediaSession(currentStation, "Playback stopped");
+      }
+    });
+
+    muteBtn.addEventListener("click", () => {
+      audio.muted = !audio.muted;
+      muteBtn.textContent = audio.muted ? "Unmute" : "Mute";
+    });
+
+    volumeSlider.addEventListener("input", (event) => {
+      audio.volume = Number(event.target.value);
+    });
+
+    stationSearch.addEventListener("input", (event) => {
+      filterStations(event.target.value);
+    });
+
+    audio.addEventListener("playing", () => {
+      playPauseBtn.textContent = "Pause";
+      playPauseBtn.dataset.state = "playing";
+      updateStatus(`Streaming ${currentStation?.name || "station"}`, "success");
+      startVisualizer();
+    });
+
+    audio.addEventListener("pause", () => {
+      if (audio.currentTime === 0 || audio.ended) {
+        cancelVisualizer();
+      }
+    });
+
+    audio.addEventListener("ended", () => {
+      playPauseBtn.textContent = "Play";
+      updateStatus("Stream ended");
+    });
+
+    audio.addEventListener("error", () => {
+      updateStatus("Stream error. Try another station.", "error");
+      setTrackTitle("Stream unavailable. Please choose another station.");
+      if (currentStation) {
+        updateMediaSession(currentStation, "Stream unavailable");
+      }
+    });
+
+    window.addEventListener("unload", () => {
+      if (metadataTimer) clearInterval(metadataTimer);
+      cancelVisualizer();
+      audio.src = "";
+    });
+
+    function resizeCanvas() {
+      const rect = visualizerCanvas.getBoundingClientRect();
+      const dpr = window.devicePixelRatio || 1;
+      visualizerCanvas.width = Math.floor(rect.width * dpr);
+      visualizerCanvas.height = Math.floor(rect.height * dpr);
+      vctx.setTransform(1, 0, 0, 1, 0, 0);
+      vctx.scale(dpr, dpr);
+    }
+
+    window.addEventListener("resize", () => {
+      resizeCanvas();
+    });
+
+    resizeCanvas();
+    fetchStations();
+
+    if ("mediaSession" in navigator) {
+      navigator.mediaSession.setActionHandler("play", () => playPauseBtn.click());
+      navigator.mediaSession.setActionHandler("pause", () => playPauseBtn.click());
+      navigator.mediaSession.setActionHandler("stop", () => stopBtn.click());
+    }
+  </script>
+</body>
+</html>
