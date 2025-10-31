@@ -1,0 +1,545 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Global Radio Player</title>
+  <style>
+    :root {
+      color-scheme: light dark;
+      --bg-gradient: linear-gradient(135deg, #0f172a, #1e293b 45%, #0ea5e9);
+      --card-bg: rgba(15, 23, 42, 0.65);
+      --card-border: rgba(255, 255, 255, 0.12);
+      --accent: #38bdf8;
+      --text-primary: #f8fafc;
+      --text-secondary: rgba(248, 250, 252, 0.75);
+      --shadow: 0 20px 45px rgba(15, 23, 42, 0.45);
+      --font-stack: "Inter", "Segoe UI", Roboto, sans-serif;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      min-height: 100vh;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      background: var(--bg-gradient);
+      font-family: var(--font-stack);
+      color: var(--text-primary);
+      padding: 24px 12px;
+    }
+
+    .app-shell {
+      width: min(960px, 100%);
+      background: var(--card-bg);
+      border: 1px solid var(--card-border);
+      border-radius: 24px;
+      backdrop-filter: blur(14px);
+      box-shadow: var(--shadow);
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+
+    header {
+      padding: 28px clamp(16px, 5vw, 40px) 16px;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      border-bottom: 1px solid var(--card-border);
+    }
+
+    header h1 {
+      margin: 0;
+      font-size: clamp(1.7rem, 2.4vw, 2.4rem);
+      letter-spacing: 0.01em;
+    }
+
+    header p {
+      margin: 0;
+      color: var(--text-secondary);
+      font-size: clamp(0.95rem, 1.2vw, 1rem);
+      line-height: 1.5;
+    }
+
+    .player-controls {
+      padding: 24px clamp(16px, 5vw, 40px) 12px;
+      display: grid;
+      gap: 16px;
+    }
+
+    .controls-row {
+      display: flex;
+      gap: 12px;
+      flex-wrap: wrap;
+    }
+
+    .controls-row > * {
+      flex: 1 1 220px;
+    }
+
+    .sr-only {
+      position: absolute;
+      width: 1px;
+      height: 1px;
+      padding: 0;
+      margin: -1px;
+      overflow: hidden;
+      clip: rect(0, 0, 0, 0);
+      border: 0;
+    }
+
+    select, button {
+      width: 100%;
+      padding: 14px 16px;
+      border-radius: 14px;
+      border: 1px solid var(--card-border);
+      background: rgba(15, 23, 42, 0.6);
+      color: var(--text-primary);
+      font-size: 1rem;
+      font-family: inherit;
+      transition: transform 0.15s ease, box-shadow 0.15s ease, border-color 0.3s ease;
+    }
+
+    select:focus, button:focus {
+      outline: none;
+      border-color: var(--accent);
+      box-shadow: 0 0 0 3px rgba(56, 189, 248, 0.35);
+    }
+
+    button {
+      background: var(--accent);
+      color: #0f172a;
+      font-weight: 600;
+      cursor: pointer;
+    }
+
+    button:hover {
+      transform: translateY(-1px);
+      box-shadow: 0 12px 24px rgba(14, 165, 233, 0.35);
+    }
+
+    .info-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+      gap: 12px;
+      padding: 16px clamp(16px, 5vw, 40px) 24px;
+    }
+
+    .info-card {
+      background: rgba(15, 23, 42, 0.55);
+      border: 1px solid var(--card-border);
+      border-radius: 16px;
+      padding: 16px;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+
+    .info-card span {
+      font-size: 0.85rem;
+      color: var(--text-secondary);
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+    }
+
+    .info-card strong {
+      font-size: 1.05rem;
+      word-break: break-word;
+    }
+
+    .visualizer-wrapper {
+      position: relative;
+      padding: 0 clamp(16px, 5vw, 40px) clamp(24px, 5vw, 40px);
+    }
+
+    canvas#visualizer {
+      width: 100%;
+      height: clamp(200px, 32vw, 320px);
+      display: block;
+      border-radius: 18px;
+      background: rgba(15, 23, 42, 0.45);
+      border: 1px solid rgba(148, 163, 184, 0.15);
+    }
+
+    .vis-overlay {
+      position: absolute;
+      inset: auto clamp(16px, 5vw, 40px) clamp(24px, 5vw, 40px);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      pointer-events: none;
+      font-size: 0.85rem;
+      color: rgba(248, 250, 252, 0.6);
+    }
+
+    @media (max-width: 720px) {
+      header {
+        padding-bottom: 8px;
+      }
+
+      .info-card strong {
+        font-size: 1rem;
+      }
+
+      .vis-overlay {
+        font-size: 0.75rem;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="app-shell">
+    <header>
+      <h1>Global Radio Player</h1>
+      <p>Stream curated internet radio stations with a live visualizer and real-time station insights.</p>
+    </header>
+
+    <section class="player-controls" aria-label="Radio controls">
+      <div class="controls-row">
+        <label class="sr-only" for="stationSelect">Choose station</label>
+        <select id="stationSelect" aria-label="Choose a station"></select>
+        <button id="playPause" type="button" aria-pressed="false">Play</button>
+      </div>
+    </section>
+
+    <section class="info-grid" aria-live="polite">
+      <article class="info-card">
+        <span>Station</span>
+        <strong id="stationName">—</strong>
+      </article>
+      <article class="info-card">
+        <span>Current Track</span>
+        <strong id="stationTrack">—</strong>
+      </article>
+      <article class="info-card">
+        <span>Bitrate</span>
+        <strong id="stationBitrate">—</strong>
+      </article>
+      <article class="info-card">
+        <span>Country</span>
+        <strong id="stationCountry">—</strong>
+      </article>
+    </section>
+
+    <div class="visualizer-wrapper">
+      <canvas id="visualizer" role="presentation"></canvas>
+      <div class="vis-overlay" aria-hidden="true">
+        <span>Audio Spectrum</span>
+        <span id="visualizerStatus">Paused</span>
+      </div>
+    </div>
+
+    <audio id="radioAudio" preload="none" crossorigin="anonymous"></audio>
+  </div>
+
+  <script>
+    const stationSelect = document.getElementById('stationSelect');
+    const playPauseButton = document.getElementById('playPause');
+    const audio = document.getElementById('radioAudio');
+    const stationNameEl = document.getElementById('stationName');
+    const stationTrackEl = document.getElementById('stationTrack');
+    const stationBitrateEl = document.getElementById('stationBitrate');
+    const stationCountryEl = document.getElementById('stationCountry');
+    const visualizerStatusEl = document.getElementById('visualizerStatus');
+    const canvas = document.getElementById('visualizer');
+    const canvasCtx = canvas.getContext('2d');
+
+    const stations = [
+      {
+        id: 'radio-paradise',
+        name: 'Radio Paradise (Main Mix)',
+        streamUrl: 'https://stream.radioparadise.com/aac-320',
+        bitrate: 320,
+        country: 'United States',
+        metadata: {
+          url: 'https://api.radioparadise.com/api/now_playing?chan=1',
+          parser: (data) => data?.songtitle ?? null,
+          refreshInterval: 20000
+        }
+      },
+      {
+        id: 'soma-fm-groove-salad',
+        name: 'SomaFM: Groove Salad',
+        streamUrl: 'https://ice3.somafm.com/groovesalad-128-mp3',
+        bitrate: 128,
+        country: 'United States',
+        metadata: {
+          url: 'https://api.somafm.com/songs/groovesalad.json',
+          parser: (data) => data?.songs?.[0]?.title ?? null,
+          refreshInterval: 25000
+        }
+      },
+      {
+        id: 'radio-swiss-jazz',
+        name: 'Radio Swiss Jazz',
+        streamUrl: 'https://stream.srg-ssr.ch/m/rsj/aacp_96',
+        bitrate: 96,
+        country: 'Switzerland',
+        metadata: {
+          url: 'https://www.radioswissjazz.ch/en/metadata/live/json/',
+          parser: (data) => {
+            const track = data?.current_track ?? data?.currentTrack;
+            if (!track) return null;
+            const artist = track.interpret ?? track.artist ?? track.performer;
+            const title = track.title ?? track.song ?? track.name;
+            if (!artist && !title) return null;
+            return [artist, title].filter(Boolean).join(' — ');
+          },
+          refreshInterval: 30000
+        }
+      }
+    ];
+
+    let audioContext;
+    let analyser;
+    let sourceNode;
+    let animationFrame;
+    let metadataTimer;
+
+    function populateStations() {
+      stationSelect.innerHTML = stations
+        .map((station, index) => `<option value="${station.id}" ${index === 0 ? 'selected' : ''}>${station.name}</option>`)
+        .join('');
+    }
+
+    function getStationById(id) {
+      return stations.find((station) => station.id === id) ?? stations[0];
+    }
+
+    function resizeCanvas() {
+      const ratio = window.devicePixelRatio || 1;
+      const styles = window.getComputedStyle(canvas);
+      const width = parseFloat(styles.getPropertyValue('width'));
+      const height = parseFloat(styles.getPropertyValue('height'));
+      canvas.width = width * ratio;
+      canvas.height = height * ratio;
+      canvasCtx.setTransform(1, 0, 0, 1, 0, 0);
+      canvasCtx.scale(ratio, ratio);
+    }
+
+    function clearCanvas() {
+      canvasCtx.clearRect(0, 0, canvas.width, canvas.height);
+    }
+
+    function updateMediaSessionMetadata(station, trackText) {
+      if (!('mediaSession' in navigator) || typeof MediaMetadata === 'undefined') {
+        return;
+      }
+
+      navigator.mediaSession.metadata = new MediaMetadata({
+        title: station.name,
+        artist: trackText || 'Live stream',
+        album: `${station.country} • ${station.bitrate} kbps`
+      });
+    }
+
+    function drawVisualizer() {
+      if (!analyser) {
+        clearCanvas();
+        return;
+      }
+
+      const bufferLength = analyser.frequencyBinCount;
+      const dataArray = new Uint8Array(bufferLength);
+
+      const renderFrame = () => {
+        analyser.getByteFrequencyData(dataArray);
+        const { width, height } = canvas;
+        const deviceRatio = window.devicePixelRatio || 1;
+        const adjustedWidth = width / deviceRatio;
+        const adjustedHeight = height / deviceRatio;
+        canvasCtx.clearRect(0, 0, adjustedWidth, adjustedHeight);
+
+        const barCount = Math.min(48, Math.floor(bufferLength / 2));
+        const barWidth = adjustedWidth / barCount;
+
+        for (let i = 0; i < barCount; i++) {
+          const value = dataArray[i];
+          const percent = value / 255;
+          const barHeight = adjustedHeight * percent;
+          const x = i * barWidth;
+          const y = adjustedHeight - barHeight;
+
+          const gradient = canvasCtx.createLinearGradient(x, y, x, adjustedHeight);
+          gradient.addColorStop(0, 'rgba(56, 189, 248, 0.95)');
+          gradient.addColorStop(0.7, 'rgba(59, 130, 246, 0.8)');
+          gradient.addColorStop(1, 'rgba(14, 165, 233, 0.35)');
+
+          canvasCtx.fillStyle = gradient;
+          canvasCtx.fillRect(x + 1, y, barWidth - 2, barHeight);
+        }
+
+        animationFrame = requestAnimationFrame(renderFrame);
+      };
+
+      renderFrame();
+    }
+
+    function stopVisualizer() {
+      cancelAnimationFrame(animationFrame);
+      animationFrame = null;
+      visualizerStatusEl.textContent = 'Paused';
+      clearCanvas();
+    }
+
+    function ensureAudioGraph() {
+      if (audioContext) {
+        return;
+      }
+
+      audioContext = new (window.AudioContext || window.webkitAudioContext)();
+      analyser = audioContext.createAnalyser();
+      analyser.fftSize = 256;
+      analyser.smoothingTimeConstant = 0.7;
+
+      sourceNode = audioContext.createMediaElementSource(audio);
+      sourceNode.connect(analyser);
+      analyser.connect(audioContext.destination);
+    }
+
+    async function updateTrackInfo(station) {
+      if (!station.metadata?.url) {
+        stationTrackEl.textContent = 'Track info unavailable';
+        updateMediaSessionMetadata(station, null);
+        return;
+      }
+
+      stationTrackEl.textContent = 'Fetching…';
+
+      try {
+        const response = await fetch(station.metadata.url, {
+          headers: {
+            'Accept': 'application/json'
+          }
+        });
+
+        if (!response.ok) {
+          throw new Error(`Request failed: ${response.status}`);
+        }
+
+        const data = await response.json();
+        const parsed = station.metadata.parser?.(data);
+        const trackText = parsed || 'Track info unavailable';
+        stationTrackEl.textContent = trackText;
+        updateMediaSessionMetadata(station, parsed);
+      } catch (error) {
+        console.error('Unable to load track metadata', error);
+        stationTrackEl.textContent = 'Track info unavailable';
+        updateMediaSessionMetadata(station, null);
+      }
+    }
+
+    function scheduleTrackUpdates(station) {
+      clearInterval(metadataTimer);
+      updateTrackInfo(station);
+      if (station.metadata?.url) {
+        const refreshInterval = station.metadata.refreshInterval ?? 30000;
+        metadataTimer = setInterval(() => updateTrackInfo(station), refreshInterval);
+      }
+    }
+
+    function setStationDetails(station) {
+      stationNameEl.textContent = station.name;
+      stationBitrateEl.textContent = `${station.bitrate} kbps`;
+      stationCountryEl.textContent = station.country;
+      stationTrackEl.textContent = 'Fetching…';
+      updateMediaSessionMetadata(station, null);
+      scheduleTrackUpdates(station);
+    }
+
+    function loadStation(station) {
+      const wasPlaying = !audio.paused;
+      audio.src = station.streamUrl;
+      audio.load();
+      setStationDetails(station);
+      visualizerStatusEl.textContent = wasPlaying ? 'Buffering…' : 'Ready';
+      if (wasPlaying) {
+        audio.play().catch((error) => {
+          console.error('Playback interrupted:', error);
+          playPauseButton.textContent = 'Play';
+          playPauseButton.setAttribute('aria-pressed', 'false');
+          stopVisualizer();
+        });
+      }
+    }
+
+    function togglePlayback() {
+      if (audio.paused) {
+        ensureAudioGraph();
+        audio.play().then(() => {
+          playPauseButton.textContent = 'Pause';
+          playPauseButton.setAttribute('aria-pressed', 'true');
+          visualizerStatusEl.textContent = 'Live';
+          if (audioContext.state === 'suspended') {
+            audioContext.resume();
+          }
+          drawVisualizer();
+        }).catch((error) => {
+          console.error('Playback failed:', error);
+        });
+      } else {
+        audio.pause();
+        playPauseButton.textContent = 'Play';
+        playPauseButton.setAttribute('aria-pressed', 'false');
+        stopVisualizer();
+      }
+    }
+
+    function handleStationChange(event) {
+      const station = getStationById(event.target.value);
+      if (!station) return;
+      loadStation(station);
+    }
+
+    function setInitialStation() {
+      const station = getStationById(stationSelect.value);
+      setStationDetails(station);
+      audio.src = station.streamUrl;
+      visualizerStatusEl.textContent = 'Ready';
+    }
+
+    function setupMediaSession() {
+      if (!('mediaSession' in navigator)) {
+        return;
+      }
+
+      navigator.mediaSession.setActionHandler('play', () => {
+        togglePlayback();
+      });
+      navigator.mediaSession.setActionHandler('pause', () => {
+        togglePlayback();
+      });
+
+      audio.addEventListener('playing', () => {
+        const station = getStationById(stationSelect.value);
+        updateMediaSessionMetadata(station, stationTrackEl.textContent);
+      });
+    }
+
+    populateStations();
+    setInitialStation();
+    resizeCanvas();
+    window.addEventListener('resize', resizeCanvas);
+
+    playPauseButton.addEventListener('click', togglePlayback);
+
+    stationSelect.addEventListener('change', handleStationChange);
+    audio.addEventListener('ended', stopVisualizer);
+    audio.addEventListener('pause', stopVisualizer);
+    audio.addEventListener('playing', () => {
+      visualizerStatusEl.textContent = 'Live';
+      if (audioContext?.state === 'suspended') {
+        audioContext.resume();
+      }
+      drawVisualizer();
+    });
+
+    setupMediaSession();
+  </script>
+</body>
+</html>
